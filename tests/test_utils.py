@@ -37,8 +37,8 @@ def test_get_host_user_honours_home_env(monkeypatch):
 
 def test_worktree_lock_is_reentrant_round_trip(tmp_path):
     lock = tmp_path / "lock"
-    with worktree_lock(str(lock)):
+    with worktree_lock(lock):
         pass
     # Re-acquiring after release must succeed.
-    with worktree_lock(str(lock)):
+    with worktree_lock(lock):
         pass

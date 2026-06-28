@@ -109,7 +109,11 @@ changing `DAZELISK_IMAGE` automatically uses a fresh container.
 ## Development
 
 ```sh
-uv run pytest
+uv run pytest              # tests
+uv run ruff check          # lint
+uv run ruff format         # auto-format the code
+uv run ruff format --check # verify formatting (as CI does)
+uv run ty check            # type-check
 ```
 
 See `DESIGN.md` for design and security guidelines.

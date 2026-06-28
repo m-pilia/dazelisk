@@ -9,6 +9,7 @@ import logging
 import os
 import sys
 from collections.abc import Mapping
+from pathlib import Path
 
 from dazelisk import customization, docker, gpu, naming, user_mapping, volume
 from dazelisk.naming import ResourceNames
@@ -27,9 +28,7 @@ def _ensure_image(image: str) -> None:
 def _ensure_volume(names: ResourceNames, user: HostUser) -> None:
     if not volume.volume_exists(names.volume):
         volume.create_volume(names.volume)
-        volume.ensure_volume_permissions(
-            names.volume, user.uid, user.gid, names.image
-        )
+        volume.ensure_volume_permissions(names.volume, user.uid, user.gid, names.image)
 
 
 def ensure_container(
@@ -44,7 +43,7 @@ def ensure_container(
     serialised by a per-worktree lock; concurrent ``docker exec`` is unaffected.
     """
     env = os.environ if env is None else env
-    with worktree_lock(str(names.lock_path)):
+    with worktree_lock(names.lock_path):
         _ensure_image(names.image)
         _ensure_volume(names, user)
         if docker.container_is_running(names.container):
@@ -58,14 +57,13 @@ def ensure_container(
                 image=names.image,
                 user=f"{user.uid}:{user.gid}",
                 home=user.home,
+                worktree=str(names.worktree_root),
                 cache_volume=names.volume,
                 passwd_path=str(passwd),
                 group_path=str(group),
                 labels={naming.UID_LABEL_KEY: str(user.uid)},
                 extra_mounts=customization.parse_mounts(env.get("DAZELISK_MOUNTS")),
-                env_args=customization.parse_environment(
-                    env.get("DAZELISK_ENVIRONMENT"), env
-                ),
+                env_args=customization.parse_environment(env.get("DAZELISK_ENVIRONMENT"), env),
                 ports=customization.parse_ports(env.get("DAZELISK_PORTS")),
                 gpus=gpu.should_enable_gpus(env),
                 entrypoint=CONTAINER_ENTRYPOINT,
@@ -79,10 +77,17 @@ def run_in_container(
     *,
     as_root: bool = False,
     tty: bool | None = None,
+    workdir: str | None = None,
 ) -> int:
-    """Exec a command, returning its exit code. TTY auto-detected unless forced."""
+    """Exec a command, returning its exit code.
+
+    Runs in the host's current working directory (mirrored into the container via
+    the identical-path worktree mount). TTY is auto-detected unless forced.
+    """
     if tty is None:
         tty = sys.stdin.isatty() and sys.stdout.isatty()
+    if workdir is None:
+        workdir = str(Path.cwd())
     return docker.exec_container(
-        name, command, as_root=as_root, interactive=True, tty=tty
+        name, command, as_root=as_root, interactive=True, tty=tty, workdir=workdir
     )

@@ -26,6 +26,7 @@ class ContainerSpec:
     image: str
     user: str
     home: str
+    worktree: str
     cache_volume: str
     passwd_path: str
     group_path: str
@@ -39,18 +40,21 @@ class ContainerSpec:
 
 def _build_run_args(spec: ContainerSpec) -> list[str]:
     return [
-        DOCKER_CLI, "run", "--detach",
-        "--name", spec.name,
-        *(arg for k, v in spec.labels.items() for arg in ("--label", f"{k}={v}")),
-        "--user", spec.user,
-        "--env", f"HOME={spec.home}",
-        "--volume", f"{spec.cache_volume}:{spec.home}/.cache",
-        "--volume", f"{spec.passwd_path}:/etc/passwd:ro",
-        "--volume", f"{spec.group_path}:/etc/group:ro",
-        *(arg for mount in spec.extra_mounts for arg in ("--mount", mount)),
-        *(arg for env in spec.env_args for arg in ("--env", env)),
-        *(arg for port in spec.ports for arg in ("--publish", port)),
-        *(("--gpus", "all") if spec.gpus else ()),
+        DOCKER_CLI,
+        "run",
+        "--detach",
+        f"--name={spec.name}",
+        *(f"--label={k}={v}" for k, v in spec.labels.items()),
+        f"--user={spec.user}",
+        f"--env=HOME={spec.home}",
+        f"--volume={spec.worktree}:{spec.worktree}",
+        f"--volume={spec.cache_volume}:{spec.home}/.cache",
+        f"--volume={spec.passwd_path}:/etc/passwd:ro",
+        f"--volume={spec.group_path}:/etc/group:ro",
+        *(f"--mount={mount}" for mount in spec.extra_mounts),
+        *(f"--env={env}" for env in spec.env_args),
+        *(f"--publish={port}" for port in spec.ports),
+        *(["--gpus=all"] if spec.gpus else []),
         spec.image,
         *spec.entrypoint,
     ]
@@ -63,12 +67,15 @@ def _build_exec_args(
     as_root: bool,
     interactive: bool,
     tty: bool,
+    workdir: str | None,
 ) -> list[str]:
     return [
-        DOCKER_CLI, "exec",
-        *(("--user", "0:0") if as_root else ()),
-        *(("--interactive",) if interactive else ()),
-        *(("--tty",) if tty else ()),
+        DOCKER_CLI,
+        "exec",
+        *(["--user=0:0"] if as_root else []),
+        *(["--interactive"] if interactive else []),
+        *(["--tty"] if tty else []),
+        *([f"--workdir={workdir}"] if workdir else []),
         name,
         *command,
     ]
@@ -82,9 +89,7 @@ def check_docker_available() -> None:
             "Install Docker Engine (Linux/WSL2) or Docker Desktop (macOS) and "
             "ensure the 'docker' command is on your PATH."
         )
-    result = _run_subprocess(
-        [DOCKER_CLI, "info"], check=False, capture_output=True
-    )
+    result = _run_subprocess([DOCKER_CLI, "info"], check=False, capture_output=True)
     if result.returncode == 0:
         return
     stderr = (result.stderr or "").lower()
@@ -144,9 +149,10 @@ def exec_container(
     as_root: bool = False,
     interactive: bool = True,
     tty: bool = False,
+    workdir: str | None = None,
 ) -> int:
     args = _build_exec_args(
-        name, command, as_root=as_root, interactive=interactive, tty=tty
+        name, command, as_root=as_root, interactive=interactive, tty=tty, workdir=workdir
     )
     return _run_subprocess(args, check=False).returncode
 
@@ -173,7 +179,5 @@ def prune_containers(uid: int) -> list[str]:
     ids = result.stdout.split()
     if ids:
         logger.info("removing %d container(s) for uid %s", len(ids), uid)
-        _run_subprocess(
-            [DOCKER_CLI, "rm", "--force", *ids], capture_output=True
-        )
+        _run_subprocess([DOCKER_CLI, "rm", "--force", *ids], capture_output=True)
     return ids

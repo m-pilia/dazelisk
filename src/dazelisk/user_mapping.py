@@ -45,7 +45,7 @@ def _write_secure(path: Path, content: str) -> None:
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w") as handle:
         handle.write(content)
-    os.chmod(path, 0o600)  # enforce 0600 even when overwriting an existing file
+    path.chmod(0o600)  # enforce 0600 even when overwriting an existing file
 
 
 def write_passwd_group(

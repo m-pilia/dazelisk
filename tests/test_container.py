@@ -16,6 +16,7 @@ def names(tmp_path):
     return ResourceNames(
         image="img:1",
         uid=1000,
+        worktree_root=tmp_path / "repo",
         worktree_sha="abc123",
         container="dazelisk-x-1000-abc123",
         volume="dazelisk-cache-1000",
@@ -26,17 +27,19 @@ def names(tmp_path):
 @pytest.fixture
 def fake_docker(monkeypatch):
     """Cut the Docker dependency; record lifecycle operations."""
-    calls = {"created": [], "removed": []}
+    created: list = []
+    removed: list = []
+    calls: dict[str, object] = {"created": created, "removed": removed}
     state = {"exists": False, "running": False, "image": True, "volume": True}
 
     monkeypatch.setattr(docker, "image_exists", lambda image: state["image"])
-    monkeypatch.setattr(docker, "pull_image", lambda image: calls.setdefault("pulled", image))
+    monkeypatch.setattr(docker, "pull_image", lambda image: calls.update(pulled=image))
     monkeypatch.setattr(volume, "volume_exists", lambda name: state["volume"])
-    monkeypatch.setattr(volume, "create_volume", lambda name: calls.setdefault("volume_created", name))
-    monkeypatch.setattr(volume, "ensure_volume_permissions", lambda *a, **k: calls.setdefault("perms", a))
+    monkeypatch.setattr(volume, "create_volume", lambda name: calls.update(volume_created=name))
+    monkeypatch.setattr(volume, "ensure_volume_permissions", lambda *a, **k: calls.update(perms=a))
     monkeypatch.setattr(docker, "container_is_running", lambda name: state["running"])
-    monkeypatch.setattr(docker, "remove_container", lambda name: calls["removed"].append(name))
-    monkeypatch.setattr(docker, "create_container", lambda spec: calls["created"].append(spec))
+    monkeypatch.setattr(docker, "remove_container", lambda name: removed.append(name))
+    monkeypatch.setattr(docker, "create_container", lambda spec: created.append(spec))
     monkeypatch.setattr(user_mapping, "write_passwd_group", lambda user, sha: ("/tmp/p", "/tmp/g"))
     monkeypatch.setattr(gpu, "should_enable_gpus", lambda env: False)
     return calls, state
@@ -66,6 +69,7 @@ def test_created_container_carries_uid_label_and_entrypoint(fake_docker, names):
     assert spec.entrypoint == container.CONTAINER_ENTRYPOINT
     assert spec.user == "1000:1000"
     assert spec.home == "/home/alice"
+    assert spec.worktree == str(names.worktree_root)
 
 
 def test_missing_image_is_pulled(fake_docker, names):

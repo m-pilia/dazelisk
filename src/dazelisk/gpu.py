@@ -29,17 +29,14 @@ def _passthrough_requested(value: str | None) -> bool:
     if normalised in _FALSE_VALUES:
         return False
     raise ValueError(
-        f"{GPU_PASSTHROUGH_ENV_VAR} must be one of 1/0/true/false "
-        f"(case-insensitive), got {value!r}"
+        f"{GPU_PASSTHROUGH_ENV_VAR} must be one of 1/0/true/false (case-insensitive), got {value!r}"
     )
 
 
 def has_nvidia_gpu() -> bool:
     if shutil.which("nvidia-smi") is None:
         return False
-    result = _run_subprocess(
-        ["nvidia-smi", "-L"], check=False, capture_output=True
-    )
+    result = _run_subprocess(["nvidia-smi", "-L"], check=False, capture_output=True)
     return result.returncode == 0
 
 

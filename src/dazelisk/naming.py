@@ -65,17 +65,20 @@ def uid_label(uid: int) -> str:
 class ResourceNames:
     image: str
     uid: int
+    worktree_root: Path
     worktree_sha: str
     container: str
     volume: str
     lock_path: Path
 
     @classmethod
-    def build(cls, image: str, uid: int, worktree_root: Path | str) -> "ResourceNames":
+    def build(cls, image: str, uid: int, worktree_root: Path | str) -> ResourceNames:
+        worktree_root = Path(worktree_root)
         worktree_sha = get_worktree_sha(worktree_root)
         return cls(
             image=image,
             uid=uid,
+            worktree_root=worktree_root,
             worktree_sha=worktree_sha,
             container=get_container_name(image, uid, worktree_sha),
             volume=get_volume_name(uid),

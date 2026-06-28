@@ -76,9 +76,7 @@ def test_shell_with_forwarded_args_raises(runnable):
 
 
 def test_no_command_does_nothing(runnable, monkeypatch):
-    monkeypatch.setattr(
-        container, "ensure_container", lambda *a: pytest.fail("must not create")
-    )
+    monkeypatch.setattr(container, "ensure_container", lambda *a: pytest.fail("must not create"))
     assert main([]) == 0
 
 
@@ -101,7 +99,10 @@ def test_prune_invokes_prune(monkeypatch):
 
 
 def test_run_reports_missing_image_cleanly(monkeypatch, capsys):
-    monkeypatch.setattr(cli, "main", lambda: (_ for _ in ()).throw(MissingImageError("nope")))
+    def boom():
+        raise MissingImageError("nope")
+
+    monkeypatch.setattr(cli, "main", boom)
     with pytest.raises(SystemExit) as exc:
         run()
     assert exc.value.code == 1

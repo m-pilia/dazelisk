@@ -2,10 +2,10 @@
 # Copyright (c) 2026 Martino Pilia
 
 import hashlib
+from pathlib import Path
 
 import pytest
 
-from dazelisk import naming
 from dazelisk.naming import (
     IMAGE_IDENTIFIER_LENGTH,
     WORKTREE_SHA_LENGTH,
@@ -65,6 +65,7 @@ def test_resource_names_build():
     assert names.container == get_container_name(IMAGE, 1000, names.worktree_sha)
     assert names.volume == "dazelisk-cache-1000"
     assert names.lock_path.name == f"dazelisk-1000-{names.worktree_sha}.lock"
+    assert names.worktree_root == Path("/home/u/repo")
 
 
 def test_container_name_changes_with_image_isolating_versions():

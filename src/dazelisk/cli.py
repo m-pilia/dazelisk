@@ -161,15 +161,11 @@ def _mount_cache_on_host(user: HostUser) -> int:
         return 1
     cache_volume = naming.get_volume_name(user.uid)
     if not volume.volume_exists(cache_volume):
-        logger.error(
-            "cache volume %s does not exist yet; run a build first", cache_volume
-        )
+        logger.error("cache volume %s does not exist yet; run a build first", cache_volume)
         return 1
     source = Path(volume.get_volume_mountpoint(cache_volume)) / "bazel"
     if not source.exists():
-        logger.error(
-            "no Bazel cache found at %s yet; run a build first", source
-        )
+        logger.error("no Bazel cache found at %s yet; run a build first", source)
         return 1
     destination = Path(user.home) / ".cache" / "bazel"
     destination.mkdir(parents=True, exist_ok=True)
@@ -202,9 +198,7 @@ def main(argv: list[str] | None = None) -> int:
         return _mount_cache_on_host(user)
 
     if args.dazelisk_shell and forwarded:
-        raise UsageError(
-            "--dazelisk-shell cannot be combined with forwarded bazelisk arguments"
-        )
+        raise UsageError("--dazelisk-shell cannot be combined with forwarded bazelisk arguments")
 
     worktree = workspace.get_worktree_root()
     names = naming.ResourceNames.build(naming.get_image_name(), user.uid, worktree)
@@ -218,7 +212,10 @@ def main(argv: list[str] | None = None) -> int:
     container.ensure_container(names, user)
     if args.dazelisk_shell:
         return container.run_in_container(
-            names.container, ["/bin/bash", "-i"], as_root=args.dazelisk_as_root, tty=True
+            names.container,
+            ["/bin/bash", "-i"],
+            as_root=args.dazelisk_as_root,
+            tty=True,
         )
     return container.run_in_container(
         names.container, ["bazelisk", *forwarded], as_root=args.dazelisk_as_root

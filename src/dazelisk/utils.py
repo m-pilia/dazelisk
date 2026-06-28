@@ -16,6 +16,7 @@ import time
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,6 @@ def _run_subprocess(
     check: bool = True,
     capture_output: bool = False,
     text: bool = True,
-    **kwargs: object,
 ) -> subprocess.CompletedProcess:
     """Run a subprocess, timing it and logging the command at DEBUG.
 
@@ -42,7 +42,6 @@ def _run_subprocess(
             check=check,
             capture_output=capture_output,
             text=text,
-            **kwargs,
         )
     finally:
         elapsed = time.perf_counter() - start
@@ -71,9 +70,9 @@ def get_host_user() -> HostUser:
 
 
 @contextmanager
-def worktree_lock(lock_path: str) -> Iterator[None]:
+def worktree_lock(lock_path: Path) -> Iterator[None]:
     """Exclusive advisory lock serialising the container ensure/create section."""
-    with open(lock_path, "w") as handle:
+    with lock_path.open("w") as handle:
         fcntl.flock(handle, fcntl.LOCK_EX)
         try:
             yield

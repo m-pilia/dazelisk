@@ -30,21 +30,21 @@ def create_volume(name: str) -> None:
     _run_subprocess([DOCKER_CLI, "volume", "create", name], capture_output=True)
 
 
-def _permission_fix_args(
-    volume_name: str, uid: int, gid: int, image: str
-) -> list[str]:
+def _permission_fix_args(volume_name: str, uid: int, gid: int, image: str) -> list[str]:
     return [
-        DOCKER_CLI, "run", "--rm",
-        "--user", "0:0",
-        "--entrypoint", "chown",
-        "--volume", f"{volume_name}:{_PERMISSION_FIX_TARGET}",
-        image, f"{uid}:{gid}", _PERMISSION_FIX_TARGET,
+        DOCKER_CLI,
+        "run",
+        "--rm",
+        "--user=0:0",
+        "--entrypoint=chown",
+        f"--volume={volume_name}:{_PERMISSION_FIX_TARGET}",
+        image,
+        f"{uid}:{gid}",
+        _PERMISSION_FIX_TARGET,
     ]
 
 
-def ensure_volume_permissions(
-    volume_name: str, uid: int, gid: int, image: str
-) -> None:
+def ensure_volume_permissions(volume_name: str, uid: int, gid: int, image: str) -> None:
     """Give the host user ownership of the cache volume root.
 
     Run once, right after volume creation: a fresh volume is owned by root, so

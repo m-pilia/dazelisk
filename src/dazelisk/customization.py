@@ -48,9 +48,7 @@ def parse_environment(value: str | None, host_env: Mapping[str, str]) -> list[st
     for entry in entries:
         name = entry.split("=", 1)[0]
         if not name:
-            raise ValueError(
-                f"DAZELISK_ENVIRONMENT entry {entry!r} has an empty variable name"
-            )
+            raise ValueError(f"DAZELISK_ENVIRONMENT entry {entry!r} has an empty variable name")
         if "=" not in entry and name not in host_env:
             raise ValueError(
                 f"DAZELISK_ENVIRONMENT forwards {name} but it is not set on the "

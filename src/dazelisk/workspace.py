@@ -32,9 +32,7 @@ def _worktree_markers(env: Mapping[str, str]) -> tuple[str, ...]:
     return tuple(markers)
 
 
-def get_worktree_root(
-    start: Path | None = None, env: Mapping[str, str] | None = None
-) -> Path:
+def get_worktree_root(start: Path | None = None, env: Mapping[str, str] | None = None) -> Path:
     """Return the worktree root by walking ancestors for a known marker.
 
     Falls back to the current working directory (with a warning) when no marker

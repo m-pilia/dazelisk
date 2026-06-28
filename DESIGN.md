@@ -23,6 +23,17 @@ one-off task notes.
   `X | None`, `pathlib`, dataclasses, structural patterns) over verbose
   backward-compatible constructs.
 
+## Tooling
+
+- Lint with `ruff check`, format with `ruff format`, and type-check with
+  `ty check`; all must pass on `src` and `tests`. Configuration lives in
+  `pyproject.toml`, and CI enforces all three (plus `ruff format --check`).
+- Formatting is owned by `ruff format`, so the linter does not flag line length
+  (`E501` is disabled). Keep the code formatter-clean.
+- In the Docker argument builders, prefer the combined `--flag=value` form
+  (single list element) over separate `"--flag", value` pairs, so each argument
+  stays on one line and reads well under the formatter.
+
 ## Subprocess discipline
 
 - All process execution goes through `utils._run_subprocess`. No raw
