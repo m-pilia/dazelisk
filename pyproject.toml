@@ -1,0 +1,26 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "dazelisk"
+version = "0.1.0"
+description = "Containerized bazelisk wrapper: run bazelisk transparently inside a Docker container"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "Martino Pilia", email = "martino.pilia@proton.me" }]
+keywords = ["bazel", "bazelisk", "docker", "container"]
+dependencies = []
+
+[project.scripts]
+dazelisk = "dazelisk.cli:run"
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-mock"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dazelisk"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
