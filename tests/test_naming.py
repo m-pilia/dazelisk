@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from dazelisk import naming
 from dazelisk.naming import (
     IMAGE_IDENTIFIER_LENGTH,
     WORKTREE_SHA_LENGTH,
@@ -22,14 +23,22 @@ from dazelisk.naming import (
 IMAGE = "docker.io/library/dazelisk:1.0.0-1"
 
 
-def test_get_image_name_raises_when_unset(monkeypatch):
+def test_get_image_name_raises_when_no_override_and_no_default(monkeypatch):
     monkeypatch.delenv("DAZELISK_IMAGE", raising=False)
+    monkeypatch.setattr(naming, "_default_image", lambda: None)
     with pytest.raises(MissingImageError):
         get_image_name()
 
 
-def test_get_image_name_returns_value(monkeypatch):
+def test_get_image_name_returns_default_when_unset(monkeypatch):
+    monkeypatch.delenv("DAZELISK_IMAGE", raising=False)
+    monkeypatch.setattr(naming, "_default_image", lambda: "repo@sha256:abc")
+    assert get_image_name() == "repo@sha256:abc"
+
+
+def test_override_takes_precedence_over_default(monkeypatch):
     monkeypatch.setenv("DAZELISK_IMAGE", IMAGE)
+    monkeypatch.setattr(naming, "_default_image", lambda: "repo@sha256:abc")
     assert get_image_name() == IMAGE
 
 

@@ -1,0 +1,15 @@
+schemaVersion: 2.0.0
+
+fileExistenceTests:
+  - name: bazelisk
+    path: /usr/local/bin/bazelisk
+    shouldExist: true
+  - name: bash
+    path: /bin/bash
+    shouldExist: true
+  - name: sleep
+    path: /bin/sleep
+    shouldExist: true
+  - name: chown
+    path: /bin/chown
+    shouldExist: true

@@ -32,6 +32,9 @@ htmlcov/
 .vscode/
 *.swp
 
+# Bazel symlinks
+bazel-*
+
 # OS noise
 .DS_Store
 Thumbs.db

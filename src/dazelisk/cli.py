@@ -19,12 +19,11 @@ inside the container, e.g. `dazelisk build //...` runs `bazelisk build //...`.
     --dazelisk-shell always allocates one.
 
 ### Environment Variables
-  DAZELISK_IMAGE (required)
-    Immutable image reference - a pinned tag or a @sha256 digest. No default is
-    provided: mutable tags would undermine reproducibility and supply-chain
-    safety.
-      export DAZELISK_IMAGE=docker.io/library/dazelisk:1.0.0-1
-      export DAZELISK_IMAGE=docker.io/library/dazelisk@sha256:0a1b2c3d4e5f...
+  DAZELISK_IMAGE (optional)
+    Override the bundled default image. Use an immutable reference, preferably
+    a pinned @sha256 digest, so the build environment stays reproducible.
+      export DAZELISK_IMAGE=docker.io/myorg/my-bazel-image:1.2.3
+      export DAZELISK_IMAGE=docker.io/myorg/my-bazel-image@sha256:0a1b2c3d4e5f...
 
   DAZELISK_MOUNTS
     JSON list of `docker run --mount` specs (applied only when the container is

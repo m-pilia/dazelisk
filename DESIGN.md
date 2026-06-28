@@ -8,9 +8,11 @@ one-off task notes.
 
 - dazelisk is a thin wrapper that runs bazelisk inside a Docker container.
 - Pure Python standard library only — no third-party runtime dependencies.
-- `DAZELISK_IMAGE` is mandatory and must be immutable (pinned tag or digest).
-  There is intentionally no default: mutable tags break reproducibility and
-  supply-chain guarantees.
+- dazelisk ships a default image, `martinopilia/dazelisk` on Docker Hub, pinned
+  to an immutable reference (a tag or digest baked into dazelisk, never a mutable
+  tag like `:latest`). `DAZELISK_IMAGE` optionally overrides it; an override
+  should likewise be immutable, for reproducibility and supply-chain safety. The
+  baked default is updated deliberately per release.
 - Every host-side resource is scoped to be safe on multi-user hosts and across
   multiple checkouts. Containers, passwd/group files, and the worktree lock are
   keyed by UID and a 10-char SHA-256 of the worktree root; the cache volume is
@@ -67,19 +69,45 @@ one-off task notes.
 
 ## Error handling
 
-- Fail loudly and early on misconfiguration (missing `DAZELISK_IMAGE`, malformed
-  `DAZELISK_*` JSON, invalid `DAZELISK_GPU_PASSTHROUGH`). Never silently degrade
-  to an empty configuration.
+- Fail loudly and early on misconfiguration (malformed `DAZELISK_*` JSON,
+  invalid `DAZELISK_GPU_PASSTHROUGH`). Never silently degrade to an empty
+  configuration.
 - Surface actionable guidance for environmental failures (Docker missing, daemon
   down, permission denied).
 
 ## Runtime image contract
 
-- The production image is a minimal *distroless-based* image, not an empty
-  distroless one. It must still provide what dazelisk relies on at runtime: a
-  shell (`/bin/bash` for `--dazelisk-shell`), `sleep` (keep-alive entrypoint),
-  and `chown` (cache-volume permission fix), plus bazelisk itself — and nothing
-  beyond what is strictly necessary.
+- The default image (`martinopilia/dazelisk`) is built separately with Bazel +
+  rules_oci + rules_distroless and published to Docker Hub; it is not built by
+  dazelisk at runtime.
+- It is a minimal *distroless-based* image, not an empty distroless one. It must
+  still provide what dazelisk relies on at runtime: a shell (`/bin/bash` for
+  `--dazelisk-shell`), `sleep` (keep-alive entrypoint), and `chown` (cache-volume
+  permission fix), plus bazelisk itself — and nothing beyond what is strictly
+  necessary.
+- Multi-arch (`linux/amd64` + `linux/arm64`) so Docker pulls the host-matching
+  architecture; dazelisk performs no platform forcing.
+
+## Image build & release
+
+- The image lives in the self-contained Bazel workspace under `image/`
+  (`rules_oci` + `rules_distroless`), decoupled from the Python package; the repo
+  root stays Bazel-free.
+- Base is Debian distroless *static* (no libc); glibc, bash, coreutils, and the
+  C++/zlib runtimes Bazel needs come from the apt closure, pinned via
+  `image/packages.lock.json` against a fixed `snapshot.debian.org` timestamp.
+  Only bazelisk is baked in; Bazel is downloaded at runtime.
+- Reproducible by construction: base pinned by digest, apt lockfile, bazelisk
+  pinned by sha256, and `SOURCE_DATE_EPOCH=0` with fixed layer mtimes. The
+  multi-arch index digest is therefore deterministic and known before any push.
+- The default image is pinned **by digest** in the bundled data file
+  `src/dazelisk/default_image.json`, managed by `scripts/sync_image_digest.py`
+  (`--write` to update, `--check` to verify). Never hand-edit the digest.
+- Versions are synced: the image tag equals the package version. CI publishes
+  both together (image to Docker Hub, package to PyPI) when `pyproject.toml`'s
+  `version` changes on `main` — no git release tags. The pinned digest is
+  verified in CI (`--check`) before publishing and re-checked against the pushed
+  remote digest, so the source pin is never mutated inside the workflow.
 
 ## Security considerations
 

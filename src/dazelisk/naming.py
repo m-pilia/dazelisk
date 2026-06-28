@@ -6,8 +6,10 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 from dataclasses import dataclass
+from importlib import resources
 from pathlib import Path
 
 WORKTREE_SHA_LENGTH = 10
@@ -18,23 +20,39 @@ TEMP_DIR = Path("/tmp")
 IMAGE_ENV_VAR = "DAZELISK_IMAGE"
 UID_LABEL_KEY = "dazelisk.uid"
 
+# Bundled data file holding the pinned default image (digest managed by
+# scripts/sync_image_digest.py). Empty digest until the image is bootstrapped.
+DEFAULT_IMAGE_DATA_FILE = "default_image.json"
+
 
 class MissingImageError(RuntimeError):
-    """Raised when the mandatory DAZELISK_IMAGE variable is not set."""
+    """Raised when no image is available (no override and no bundled default)."""
+
+
+def _default_image() -> str | None:
+    """Pinned default image reference (``repo@digest``), or None if unpinned."""
+    data = json.loads(resources.files("dazelisk").joinpath(DEFAULT_IMAGE_DATA_FILE).read_text())
+    repo, digest = data["repo"], data["digest"]
+    if not digest:
+        return None
+    return f"{repo}@{digest}"
 
 
 def get_image_name() -> str:
-    image = os.environ.get(IMAGE_ENV_VAR)
-    if not image:
+    """The image to use: the DAZELISK_IMAGE override, else the pinned default."""
+    override = os.environ.get(IMAGE_ENV_VAR)
+    if override:
+        return override
+    default = _default_image()
+    if default is None:
         raise MissingImageError(
-            f"{IMAGE_ENV_VAR} is not set. It is mandatory and must reference an "
-            "immutable image (a pinned tag or a digest), e.g.\n"
-            f"  export {IMAGE_ENV_VAR}=docker.io/library/dazelisk:1.0.0-1\n"
-            f"  export {IMAGE_ENV_VAR}=docker.io/library/dazelisk@sha256:<digest>\n"
-            "No default is provided on purpose: mutable tags would undermine "
-            "reproducibility and supply-chain safety."
+            "No container image is configured. Set the DAZELISK_IMAGE environment "
+            "variable to an immutable reference (a pinned tag or a digest), e.g.\n"
+            f"  export {IMAGE_ENV_VAR}=docker.io/martinopilia/dazelisk@sha256:<digest>\n"
+            "(a default image is normally bundled, but this build has no pinned "
+            "digest yet)."
         )
-    return image
+    return default
 
 
 def _sha10(value: str, length: int) -> str:

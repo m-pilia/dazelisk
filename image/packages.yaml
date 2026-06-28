@@ -1,0 +1,18 @@
+version: 1
+
+sources:
+  - channel: bookworm main
+    url: https://snapshot.debian.org/archive/debian/20250601T000000Z
+
+archs:
+  - amd64
+  - arm64
+
+# Only what bazelisk/Bazel need to run
+packages:
+  - bash
+  - coreutils
+  # Bazel itself is dynamically linked against the C++ runtime and zlib.
+  - libstdc++6
+  - libgcc-s1
+  - zlib1g

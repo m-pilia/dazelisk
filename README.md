@@ -33,7 +33,6 @@ Any argument that is not a `--dazelisk-*` flag is forwarded verbatim to bazelisk
 
 - Python 3.12+
 - Docker (Engine on Linux/WSL2, Desktop on macOS) with a running daemon
-- The `DAZELISK_IMAGE` environment variable (see below)
 
 dazelisk has **no third-party Python dependencies** to strengthen supply chain
 safety.
@@ -46,21 +45,24 @@ uv pip install dazelisk
 
 This installs the `dazelisk` entry point.
 
-## `DAZELISK_IMAGE` is mandatory
+## Container image
 
-dazelisk does not build or bundle an image; it only pulls one. You must point it
-at an image via `DAZELISK_IMAGE`:
+The container image can be configured. By default dazelisk uses the official
+image published on Docker Hub,
+[`martinopilia/dazelisk`](https://hub.docker.com/r/martinopilia/dazelisk) — a
+minimal image containing only what is needed to run bazelisk, so that you do
+not pay for what you do not use. It is pulled automatically on first use; no
+configuration is required. dazelisk never builds an image, it only pulls one.
+
+To use a custom image instead, set `DAZELISK_IMAGE`:
 
 ```sh
-export DAZELISK_IMAGE=docker.io/library/dazelisk:1.0.0-1
-# or pin a digest for exact reproducibility:
-export DAZELISK_IMAGE=docker.io/library/dazelisk@sha256:<digest>
+# pin a digest for exact reproducibility
+export DAZELISK_IMAGE=docker.io/myorg/my-bazel-image@sha256:<digest>
 ```
 
-There is **no default on purpose**: the reference must be immutable (a pinned
-tag or a digest). Mutable tags such as `:latest` would silently change the build
-environment, undermining reproducibility and supply-chain safety. dazelisk fails
-immediately with guidance if `DAZELISK_IMAGE` is unset.
+For reproducibility and supply-chain safety, a custom `DAZELISK_IMAGE` should
+also be an immutable reference (a pinned tag or a digest), not a mutable tag.
 
 ## Usage
 
@@ -98,7 +100,8 @@ changing `DAZELISK_IMAGE` automatically uses a fresh container.
 
 ## Troubleshooting
 
-- **`DAZELISK_IMAGE is not set`** — export it (see above).
+- **Image pull failure** — check your network/registry access and that
+  `DAZELISK_IMAGE` (if set) is a valid, reachable reference.
 - **Docker CLI not found / daemon not reachable** — install Docker and start it
   (`sudo systemctl start docker`, or launch Docker Desktop).
 - **Permission denied talking to Docker** — `sudo usermod -aG docker $USER && newgrp docker`.
@@ -108,15 +111,45 @@ changing `DAZELISK_IMAGE` automatically uses a fresh container.
 
 ## Development
 
+See `DESIGN.md` for design and security guidelines.
+
+Run checks and tests:
+
 ```sh
 uv run pytest              # tests
 uv run ruff check          # lint
 uv run ruff format         # auto-format the code
-uv run ruff format --check # verify formatting (as CI does)
+uv run ruff format --check # verify formatting
 uv run ty check            # type-check
 ```
 
-See `DESIGN.md` for design and security guidelines.
+Build and load the image:
+
+```
+cd image
+bazelisk test //...                 # build the image and run its tests
+bazelisk run //:load                # load it into the local Docker daemon
+```
+
+Manual push to registry:
+
+```
+bazelisk run //:push -- --repository <repository> --tag <tag>
+```
+
+After changing anything under `image/`, refresh the pinned default digest:
+
+```sh
+python scripts/sync_image_digest.py           # rewrite the pinned digest
+python scripts/sync_image_digest.py --check   # verify if the digest is up to date
+```
+
+To add a Debian package, edit `image/packages.yaml` and regenerate the lock:
+
+```sh
+cd image
+bazelisk run @bookworm//:lock
+```
 
 ## Related projects
 

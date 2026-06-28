@@ -1,0 +1,135 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  BAZELISK_VERSION: v1.25.0
+  IMAGE_REPO: docker.io/martinopilia/dazelisk
+
+jobs:
+  python_ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Lint
+        run: uv run ruff check
+
+      - name: Format check
+        run: uv run ruff format --check
+
+      - name: Type check
+        run: uv run ty check
+
+      - name: Unit tests
+        run: uv run pytest
+
+  image_ci:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      publish: ${{ steps.meta.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install bazelisk
+        run: |
+          curl -fsSL -o /usr/local/bin/bazelisk \
+            "https://github.com/bazelbuild/bazelisk/releases/download/${BAZELISK_VERSION}/bazelisk-linux-amd64"
+          chmod +x /usr/local/bin/bazelisk
+
+      - name: Build & test the image
+        working-directory: image
+        run: bazelisk test //...
+
+      - name: Verify the pinned default digest is reproducible
+        run: uv run python scripts/sync_image_digest.py --check
+
+      - name: Self-hosting test (build the image using the released image)
+        working-directory: image
+        run: |
+          image="$(python3 -c "import json; d=json.load(open('../src/dazelisk/default_image.json')); print(d['repo'] + '@' + d['digest'])")"
+          DAZELISK_IMAGE="$image" uv run --project .. dazelisk test //:structure_test
+
+      - name: Determine release metadata
+        id: meta
+        run: |
+          version="$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")"
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+          if docker manifest inspect "${IMAGE_REPO}:${version}" >/dev/null 2>&1; then
+            echo "publish=false" >>"$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >>"$GITHUB_OUTPUT"
+          fi
+
+  release:
+    needs: [python_ci, image_ci]
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      needs.image_ci.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install bazelisk
+        run: |
+          curl -fsSL -o /usr/local/bin/bazelisk \
+            "https://github.com/bazelbuild/bazelisk/releases/download/${BAZELISK_VERSION}/bazelisk-linux-amd64"
+          chmod +x /usr/local/bin/bazelisk
+
+      - name: Install crane
+        uses: imjasonh/setup-crane@v0.4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Push the multi-arch image (digest + version tag)
+        working-directory: image
+        run: bazelisk run //:push -- --tag "${{ needs.image_ci.outputs.version }}"
+
+      - name: Verify the pushed digest matches the pinned default
+        run: |
+          version="${{ needs.image_ci.outputs.version }}"
+          pinned="$(python3 -c "import json; print(json.load(open('src/dazelisk/default_image.json'))['digest'])")"
+          remote="$(crane digest "${IMAGE_REPO}:${version}")"
+          echo "pinned=$pinned remote=$remote"
+          test "$pinned" = "$remote"
+
+      - name: Build the wheel
+        run: uv build --wheel
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist

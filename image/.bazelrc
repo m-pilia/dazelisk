@@ -1,0 +1,7 @@
+common --enable_bzlmod
+build --incompatible_strict_action_env
+
+# Reproducible builds: a fixed SOURCE_DATE_EPOCH keeps image/layer timestamps
+# deterministic, so the resulting OCI index digest is byte-stable.
+build --action_env=SOURCE_DATE_EPOCH=0
+build --nostamp
