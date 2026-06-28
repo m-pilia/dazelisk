@@ -116,6 +116,12 @@ See `DESIGN.md` for design and security guidelines.
 Run checks and tests:
 
 ```sh
+./pre_push.sh
+```
+
+Or individually:
+
+```sh
 uv run pytest              # tests
 uv run ruff check          # lint
 uv run ruff format         # auto-format the code
