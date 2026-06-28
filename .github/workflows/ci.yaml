@@ -83,7 +83,6 @@ jobs:
   release:
     needs: [python_ci, image_ci]
     if: >-
-      github.event_name == 'push' &&
       github.ref == 'refs/heads/master' &&
       needs.image_ci.outputs.publish == 'true'
     runs-on: ubuntu-latest
